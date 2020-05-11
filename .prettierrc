@@ -1,0 +1,9 @@
+# .prettierrc
+
+overrides:
+- files: [".js","*.ts"]
+  options:
+    semi: false
+    singleQuote: true
+    arrowParens: "always"
+    printWidth: 120
