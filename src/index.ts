@@ -1,3 +1,23 @@
+const fragmentShaderList = [
+  require('./main.frag'),
+  require('./blur.frag'),
+  require('./blur.frag'),
+  require('./blur.frag'),
+  require('./blur.frag'),
+  require('./blur.frag'),
+  require('./blur.frag'),
+  require('./blur.frag'),
+  require('./blur.frag'),
+  require('./blur.frag'),
+  require('./blur.frag'),
+  require('./blur.frag'),
+  require('./blur.frag'),
+  require('./blur.frag'),
+  require('./blur.frag'),
+  require('./blur.frag'),
+  require('./blur.frag'),
+]
+
 const createShader = (gl: WebGL2RenderingContext, type: 'vertex' | 'fragment', shaderStr: string): WebGLShader => {
   let shader: WebGLShader = null
   switch (type) {
@@ -114,16 +134,17 @@ const state: {
   height: number
   mouseX: number
   mouseY: number
-  frameBuffer: WebGLFramebuffer
-  frameTexture: WebGLTexture
 } = {
   width: 0,
   height: 0,
   mouseX: 0.5,
   mouseY: 0.5,
-  frameBuffer: null,
-  frameTexture: null,
 }
+
+const frameList: {
+  frameBuffer: WebGLFramebuffer
+  frameTexture: WebGLTexture
+}[] = []
 
 const resize = (): void => {
   const { width, height } = $canvas.getBoundingClientRect()
@@ -132,9 +153,10 @@ const resize = (): void => {
   $canvas.width = width
   $canvas.height = height
   gl.viewport(0, 0, width, height)
-  const { frameBuffer, frameTexture } = createFramebuffer(gl, width, height)
-  state.frameBuffer = frameBuffer
-  state.frameTexture = frameTexture
+  for (let i = 0; fragmentShaderList.length > i; i++) {
+    const { frameBuffer, frameTexture } = createFramebuffer(gl, width, height)
+    frameList[i] = { frameBuffer, frameTexture }
+  }
 }
 
 const onMousemove = (e: MouseEvent): void => {
@@ -180,39 +202,47 @@ const createData = (
   return { program, uniformLocationObj }
 }
 
-const data = [
-  createData(require('./main.frag'), ['resolution', 'mouse', 'time']),
-  createData(require('./pass.frag'), ['resolution', 'mouse', 'time', 'offscreen']),
-]
+const dataList = fragmentShaderList.map((fragmentShader, i) => {
+  const uniformList = ['resolution', 'mouse', 'time']
+  if (i) {
+    uniformList.push('offscreen')
+  }
+  return createData(fragmentShader, uniformList)
+})
 
-const startTime = Date.now()
 resize()
+const startTime = Date.now()
 const render = (): void => {
   requestAnimationFrame(render)
 
-  // main
-  {
-    gl.bindFramebuffer(gl.FRAMEBUFFER, state.frameBuffer)
-    const { program, uniformLocationObj } = data[0]
-    useProgram(gl, program)
-    gl.uniform2fv(uniformLocationObj['resolution'], [state.width, state.height])
-    gl.uniform2fv(uniformLocationObj['mouse'], [state.mouseX, state.mouseY])
-    gl.uniform1f(uniformLocationObj['time'], (Date.now() - startTime) * 0.001)
-    gl.drawElements(gl.TRIANGLES, index.length, gl.UNSIGNED_SHORT, 0)
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-  }
+  let count = 0
+  for (const data of dataList) {
+    const isNotFirst = !!count
+    const isNotLast = dataList.length - 1 > count
 
-  // pass
-  {
-    const { program, uniformLocationObj } = data[1]
+    if (isNotLast) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, frameList[count].frameBuffer)
+    }
+    const { program, uniformLocationObj } = data
     useProgram(gl, program)
+
     gl.uniform2fv(uniformLocationObj['resolution'], [state.width, state.height])
     gl.uniform2fv(uniformLocationObj['mouse'], [state.mouseX, state.mouseY])
     gl.uniform1f(uniformLocationObj['time'], (Date.now() - startTime) * 0.001)
-    gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, state.frameTexture)
-    gl.uniform1i(uniformLocationObj['offscreen'], 0)
+
+    if (isNotFirst) {
+      gl.activeTexture(gl.TEXTURE0)
+      gl.bindTexture(gl.TEXTURE_2D, frameList[count - 1].frameTexture)
+      gl.uniform1i(uniformLocationObj['offscreen'], 0)
+    }
+
     gl.drawElements(gl.TRIANGLES, index.length, gl.UNSIGNED_SHORT, 0)
+
+    if (isNotLast) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+    }
+
+    count++
   }
 
   gl.flush()
