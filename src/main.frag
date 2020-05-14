@@ -12,15 +12,18 @@ out vec4 outColor;
 #define T time
 #define rot(a) mat2(cos(a),-sin(a),sin(a),cos(a))
 
-float sphDf(vec3 p) {
-  return length(p) - .5;
+float boxDf(vec3 p) {
+  p.xy *= rot(-T*.3);
+  p.yz *= rot(T*.2);
+  vec3 q = abs(p) - 0.5;
+  return length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0) - 0.03;
 }
 
 float map(vec3 p) {
   p.z += T*2.;
   p.xy *= rot(T*.5);
-  p = mod(p, 2.) - 1.;
-  float sph = sphDf(p);
+  p = mod(p, 4.) - 2.;
+  float sph = boxDf(p);
   return sph;
 }
 
@@ -32,31 +35,6 @@ vec3 norm(vec3 p) {
   );
 }
 
-float shadow(vec3 p, vec3 ray, float k) {
-  float d, t = 0., s = 1.;
-  for(int i = 0; i < 32; i++){
-    vec3 rp = p + t*ray;
-    t += d = map(rp);
-    if(d < .001){
-      s = 0.;
-      break;
-    }
-    s = min(s, k*d/t);
-  }
-  return s;
-}
-
-float ao(vec3 p, vec3 no, float k){
-  const float smp = 5.;
-  float ao = 0.;
-  for(float i = 1.; i <= smp; i++){
-    float ii = i/smp, d = k*ii;
-    vec3 rp = p + d*no;
-    ao += (d-map(rp)) * exp(ii);
-  }
-  return 1. - max(ao, 0.);
-}
-
 void main(void) {
   vec2 p = (gl_FragCoord.xy * 2. - R) / max(R.x, R.y);
   
@@ -66,18 +44,18 @@ void main(void) {
   vec3 ray = normalize(p.x*cl + p.y*cu + cf), c = vec3(0.);
   float d, t = 0.;
   
-  for(int i = 0; i < 64; i++) {
+  for(int i = 0; i < 128; i++) {
     vec3 rp = cp + t*ray;
-    t += d = map(rp);
+    d = map(rp) * .3;
+    t += min(min((step(0.,ray.x)-fract(rp.x))/ray.x,(step(0.,ray.z)-fract(rp.z))/ray.z)+.01,d);
     if(d < .001) {
       vec3 no = norm(rp), lp = vec3(-1., 1., -1.), ld = normalize(lp - rp);
-      float sha = max(shadow(rp+no*.001, ld, 8.), .5);
       float dif = max(dot(no, ld), 0.);
       float spe = pow(max(dot(-ray, reflect(-ld, no)), 0.), 8.) * .3;
-      c = vec3(1.) * ao(rp, no, .05) * sha * dif + spe;
+      c = vec3(1.) * dif + spe;
       break;
     }
   }
 
-  outColor = vec4(c, pow(t,2.)*0.1);
+  outColor = vec4(c - pow(t*0.04, 2.), abs(t*0.03-0.15));
 }
