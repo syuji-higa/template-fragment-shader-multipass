@@ -3,8 +3,8 @@
 precision highp float;
 
 #define DOF_LENGTH 5
-#define TONE_SCALE .9
-#define ZOOM .01
+#define TONE_SCALE .8
+#define ZOOM .05
 #define SCALE  (1. - ZOOM)
 #define OFFSET (ZOOM * .5)
 

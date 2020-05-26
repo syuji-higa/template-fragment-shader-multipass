@@ -139,6 +139,7 @@ const state: {
 }
 
 const DOF_LENGTH = 5
+const BLOOM_BLUR_RATE = 0.001
 const BLOOM_LENGTH = 16
 const BLOOM_REDUCTION_RATE = 4
 
@@ -275,7 +276,7 @@ const uniformData = [
   },
 ]
 
-const bloomBlurData = createBlurData(BLOOM_LENGTH, 0.001)
+const bloomBlurData = createBlurData(BLOOM_LENGTH, BLOOM_BLUR_RATE)
 
 const data = uniformData.reduce((obj, { id, data }) => {
   obj[id] = createData(require(`./${id}.frag`), data)
@@ -326,59 +327,43 @@ const render = (): void => {
     gl.viewport(0, 0, frameObj['bloom-blur'][0].frameWidth, frameObj['bloom-blur'][0].frameHeight)
 
     const { program, uniformLocationObj } = data['bloom']
+    useProgram(gl, program)
+    setBaseUniform(uniformLocationObj, time)
 
-    frameObj['bloom-blur'][1].frameTexture = frameObj['high-brightness'][0].frameTexture
-    for (let i = 0; BLOOM_LENGTH * 2 > i; i++) {
-      const count = Math.floor(i / 2)
-
-      gl.bindFramebuffer(gl.FRAMEBUFFER, frameObj['bloom-blur'][0].frameBuffer)
-      useProgram(gl, program)
-
-      const offset = bloomBlurData.offsetList[count]
+    frameObj['bloom-blur'][0].frameTexture = frameObj['high-brightness'][0].frameTexture
+    gl.bindFramebuffer(gl.FRAMEBUFFER, frameObj['bloom-blur'][1].frameBuffer)
+    for (let i = 0; BLOOM_LENGTH > i; i++) {
+      const offset = bloomBlurData.offsetList[i]
       const offsetArr = i % 2 ? [offset, 0] : [0, offset]
-      const weight = bloomBlurData.weightList[count]
-      gl.uniform2fv(uniformLocationObj[`offset[${count}]`], offsetArr)
-      gl.uniform1f(uniformLocationObj[`weight[${count}]`], weight)
-
-      gl.activeTexture(gl.TEXTURE0)
-      gl.bindTexture(gl.TEXTURE_2D, frameObj['bloom-blur'][1].frameTexture)
-      gl.uniform1i(uniformLocationObj['bloomTexture'], 0)
-
-      gl.drawElements(gl.TRIANGLES, index.length, gl.UNSIGNED_SHORT, 0)
-      gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-
-      const tmpFrame = frameObj['bloom-blur'][0]
-      frameObj['bloom-blur'][0] = frameObj['bloom-blur'][1]
-      frameObj['bloom-blur'][0] = tmpFrame
+      const weight = bloomBlurData.weightList[i]
+      gl.uniform2fv(uniformLocationObj[`offset[${i}]`], offsetArr)
+      gl.uniform1f(uniformLocationObj[`weight[${i}]`], weight)
     }
+    gl.activeTexture(gl.TEXTURE0)
+    gl.bindTexture(gl.TEXTURE_2D, frameObj['bloom-blur'][0].frameTexture)
+    gl.uniform1i(uniformLocationObj['bloomTexture'], 0)
+    gl.drawElements(gl.TRIANGLES, index.length, gl.UNSIGNED_SHORT, 0)
+
+    const tmpFrame = frameObj['bloom-blur'][0]
+    frameObj['bloom-blur'][0] = frameObj['bloom-blur'][1]
+    frameObj['bloom-blur'][1] = tmpFrame
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
 
     gl.viewport(0, 0, state.width, state.height)
 
-    frameObj['bloom'][1].frameTexture = frameObj['bloom-blur'][0].frameTexture
-    for (let i = 0; BLOOM_LENGTH * 2 > i; i++) {
-      const count = Math.floor(i / 2)
-
-      gl.bindFramebuffer(gl.FRAMEBUFFER, frameObj['bloom'][0].frameBuffer)
-      useProgram(gl, program)
-      setBaseUniform(uniformLocationObj, time)
-
-      const offset = bloomBlurData.offsetList[count]
+    gl.bindFramebuffer(gl.FRAMEBUFFER, frameObj['bloom'][0].frameBuffer)
+    for (let i = 0; BLOOM_LENGTH > i; i++) {
+      const offset = bloomBlurData.offsetList[i]
       const offsetArr = i % 2 ? [offset, 0] : [0, offset]
-      const weight = bloomBlurData.weightList[count]
-      gl.uniform2fv(uniformLocationObj[`offset[${count}]`], offsetArr)
-      gl.uniform1f(uniformLocationObj[`weight[${count}]`], weight)
-
-      gl.activeTexture(gl.TEXTURE0)
-      gl.bindTexture(gl.TEXTURE_2D, frameObj['bloom'][1].frameTexture)
-      gl.uniform1i(uniformLocationObj['bloomTexture'], 0)
-
-      gl.drawElements(gl.TRIANGLES, index.length, gl.UNSIGNED_SHORT, 0)
-      gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-
-      const tmpFrame = frameObj['bloom'][0]
-      frameObj['bloom'][0] = frameObj['bloom'][1]
-      frameObj['bloom'][0] = tmpFrame
+      const weight = bloomBlurData.weightList[i]
+      gl.uniform2fv(uniformLocationObj[`offset[${i}]`], offsetArr)
+      gl.uniform1f(uniformLocationObj[`weight[${i}]`], weight)
     }
+    gl.activeTexture(gl.TEXTURE0)
+    gl.bindTexture(gl.TEXTURE_2D, frameObj['bloom-blur'][1].frameTexture)
+    gl.uniform1i(uniformLocationObj['bloomTexture'], 0)
+    gl.drawElements(gl.TRIANGLES, index.length, gl.UNSIGNED_SHORT, 0)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
   }
 
   // dof

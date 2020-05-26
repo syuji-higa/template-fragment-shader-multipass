@@ -2,7 +2,7 @@
 
 precision highp float;
 
-#define BLOOM_LENGTH 15
+#define BLOOM_LENGTH 16
 
 uniform vec2 resolution;
 uniform vec2 mouse;
